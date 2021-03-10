@@ -1,0 +1,104 @@
+---
+title: "hemigrapsus_eda"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+# STEP 1 - Load GBIF data
+https://doi.org/10.15468/dl.syeyk2
+
+This notebook:
+1. Reads in the output from hemigrapsus GBIF search (Emily Pierce, 2020-12-17) 
+2. Summarize and filter outputs ("ME", "Maine", by date and location)
+3. Writes to csv ("hemi_gbif_me_20201217.csv")
+
+```{r, echo=FALSE, results="hide", messages=FALSE}
+# Load and Install Libraries
+source("hemi_functions.R")
+## Check libraries & install
+LibraryList<-c("data.table","dplyr","tidyr","ggplot2")
+install_or_load_pack(LibraryList)
+outputFolder = "Data/02_Working/"
+overwrite = TRUE
+```
+
+# load in data
+```{r}
+# https://doi.org/10.15468/dl.syeyk2
+#load data
+hemi_gbif <- data.table::fread('Data/01_Original/0139172-200613084148143/0139172-200613084148143.csv')
+
+# displays column names & number of rows - 6589
+names(hemi_gbif);nrow(hemi_gbif)
+```
+
+
+# head
+```{r}
+# Head displays the first 6 rows of the data.table
+head(hemi_gbif)
+```
+
+# summary by state (550)
+```{r}
+hemi_gbif %>%
+  group_by(stateProvince) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n), stateProvince)
+
+```
+# summary by date, state  (398)
+```{r}
+hemi_gbif %>%
+  select(eventDate, stateProvince) %>%
+  mutate(date = as.POSIXct(eventDate, format = '%Y-%m-%d')) %>%
+  group_by(date,stateProvince) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n), date, stateProvince)
+  
+```
+# summary by maine eventDate (35)
+```{r}
+hemi_gbif %>%
+  filter(stateProvince=="Maine" |stateProvince=="Me" ) %>%
+  select(eventDate, stateProvince) %>%
+  mutate(date = format(as.POSIXct(eventDate, format = '%Y-%m-%d'),'%m/%d/%Y')) %>%
+  group_by(eventDate,date,stateProvince) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n), eventDate)
+  
+```
+
+# summary by maine lat,long (33)
+```{r}
+
+hemi_gbif %>%
+  filter(stateProvince=="Maine" |stateProvince=="Me" ) %>%
+  group_by(decimalLatitude, decimalLongitude) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n))
+
+```
+
+
+# summary by maine date, lat, long (35)
+```{r}
+
+hemi_gbif_sub<- hemi_gbif %>%
+  filter(stateProvince=="Maine" |stateProvince=="Me" ) %>%
+  mutate(date = as.POSIXct(eventDate, format = '%Y-%m-%d')) %>%
+  group_by(date, decimalLatitude, decimalLongitude) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n), date)
+
+
+# write summary count to csv
+outputFileName = "hemi_gbif_me_20201217"
+outputFile = paste0(outputFolder,outputFileName,".csv")
+
+if (!file.exists(outputFile) | overwrite) {
+  write.csv(hemi_gbif_sub, outputFile, row.names=FALSE)
+}
+
+hemi_gbif
+```
